@@ -4,6 +4,7 @@ import { sortBy } from "lodash";
 import minimatch from "minimatch";
 import { resolve } from "npm-package-arg";
 import { join } from "path";
+import { performance } from "perf_hooks";
 import { satisfies } from "semver";
 import { getPackageManifestPath } from "../get-package-manifest-path";
 import { ExtendedNpaResult, Package, RawManifest } from "../package";
@@ -18,9 +19,11 @@ export async function createProjectGraphWithPackages(
   projectGraph: ProjectGraph,
   packageConfigs: string[]
 ): Promise<ProjectGraphWithPackages> {
+  performance.mark("createProjectGraphWithPackages:start");
   // We respect the NX_WORKSPACE_ROOT_PATH environment variable at runtime in order to support existing unit tests
   const _workspaceRoot = process.env["NX_WORKSPACE_ROOT_PATH"] || workspaceRoot;
 
+  performance.mark("createProjectGraphWithPackages:readPackageJsonFiles:start");
   const projectNodes = Object.values(projectGraph.nodes);
   const projectNodesMatchingPackageConfigs = projectNodes.filter((node) => {
     const matchesRootPath = (config: string) => minimatch(node.data.root, config);
@@ -40,7 +43,14 @@ export async function createProjectGraphWithPackages(
         })
     )
   );
+  performance.mark("createProjectGraphWithPackages:readPackageJsonFiles:end");
+  performance.measure(
+    "createProjectGraphWithPackages:readPackageJsonFiles",
+    "createProjectGraphWithPackages:readPackageJsonFiles:start",
+    "createProjectGraphWithPackages:readPackageJsonFiles:end"
+  );
 
+  performance.mark("createProjectGraphWithPackages:sortAndCreatePackages:start");
   // We want Object.values(projectGraph.nodes) to be sorted by root path
   const projectGraphWithOrderedNodes: ProjectGraphWithPackages = {
     ...projectGraph,
@@ -61,6 +71,14 @@ export async function createProjectGraphWithPackages(
     };
   });
 
+  performance.mark("createProjectGraphWithPackages:sortAndCreatePackages:end");
+  performance.measure(
+    "createProjectGraphWithPackages:sortAndCreatePackages",
+    "createProjectGraphWithPackages:sortAndCreatePackages:start",
+    "createProjectGraphWithPackages:sortAndCreatePackages:end"
+  );
+
+  performance.mark("createProjectGraphWithPackages:populateLocalPackageDependencies:start");
   // populate local npm package dependencies
   Object.values(projectGraphWithOrderedNodes.dependencies).forEach((projectDeps) => {
     const workspaceDeps = projectDeps.filter(
@@ -71,14 +89,14 @@ export async function createProjectGraphWithPackages(
       const target = projectGraphWithOrderedNodes.nodes[dep.target];
       if (!source || !source.package || !target || !target.package) {
         // only relevant for dependencies between two workspace projects with Package objects
-        continue;
+        return;
       }
 
       const sourcePkg = getPackage(source);
       const targetPkg = getPackage(target);
       const sourceNpmDependency = sourcePkg.getLocalDependency(targetPkg.name);
       if (!sourceNpmDependency) {
-        continue;
+        return;
       }
 
       const workspaceDep = dep as ProjectGraphWorkspacePackageDependency;
@@ -108,6 +126,19 @@ export async function createProjectGraphWithPackages(
       }
     }
   });
+  performance.mark("createProjectGraphWithPackages:populateLocalPackageDependencies:end");
+  performance.measure(
+    "createProjectGraphWithPackages:populateLocalPackageDependencies",
+    "createProjectGraphWithPackages:populateLocalPackageDependencies:start",
+    "createProjectGraphWithPackages:populateLocalPackageDependencies:end"
+  );
+
+  performance.mark("createProjectGraphWithPackages:end");
+  performance.measure(
+    "createProjectGraphWithPackages",
+    "createProjectGraphWithPackages:start",
+    "createProjectGraphWithPackages:end"
+  );
 
   return projectGraphWithOrderedNodes;
 }

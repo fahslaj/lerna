@@ -10,6 +10,8 @@ import yargs from "yargs";
 export function lernaCLI(argv?: string | readonly string[], cwd?: string) {
   const cli = yargs(argv, cwd);
 
+  require("./perf-logging");
+
   return globalOptions(cli)
     .usage("Usage: $0 <command> [options]")
     .demandCommand(1, "A command is required. Pass --help to see all available commands and options.")
