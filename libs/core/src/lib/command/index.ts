@@ -3,6 +3,7 @@ import dedent from "dedent";
 import execa from "execa";
 import log from "npmlog";
 import os from "os";
+import { performance } from "perf_hooks";
 import { PackageGraph } from "../package-graph";
 import { CommandConfigOptions, Project } from "../project";
 import { ValidationError } from "../validation-error";
@@ -38,6 +39,7 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
   }
 
   constructor(_argv: any, { skipValidations } = { skipValidations: false }) {
+    performance.mark("command:start");
     log.pause();
     log.heading = "lerna";
 
@@ -61,7 +63,10 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
       let chain = Promise.resolve();
 
       chain = chain.then(() => {
+        performance.mark("command:buildProject:start");
         this.project = new Project(argv.cwd);
+        performance.mark("command:buildProject:end");
+        performance.measure("command buildProject", "command:buildProject:start", "command:buildProject:end");
       });
       chain = chain.then(() => this.configureEnvironment());
       chain = chain.then(() => this.configureOptions());
@@ -76,6 +81,8 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
 
       chain.then(
         (result) => {
+          performance.mark("command:end");
+          performance.measure("command", "command:start", "command:end");
           warnIfHanging();
 
           resolve(result);
@@ -146,6 +153,7 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
   }
 
   configureEnvironment() {
+    performance.mark("command:configure-environment:start");
     // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
     const ci = require("is-ci");
     let loglevel;
@@ -171,9 +179,17 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
         loglevel,
       },
     });
+    performance.mark("command:configure-environment:end");
+    performance.measure(
+      "command configureEnvironment",
+      "command:configure-environment:start",
+      "command:configure-environment:end"
+    );
   }
 
   configureOptions() {
+    performance.mark("command:configure-options:start");
+
     // Command config object normalized to "command" namespace
     const commandConfig = this.project.config.command || {};
 
@@ -194,6 +210,13 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
     if (this.options.verbose && this.options.loglevel !== "silly") {
       this.options.loglevel = "verbose";
     }
+
+    performance.mark("command:configure-options:end");
+    performance.measure(
+      "command configureOptions",
+      "command:configure-options:start",
+      "command:configure-options:end"
+    );
   }
   argv(argv: any, arg1: any, config: any, envDefaults: any): any {
     throw new Error("Method not implemented.");
@@ -203,6 +226,8 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
   }
 
   configureProperties() {
+    performance.mark("command:configure-properties:start");
+
     const { concurrency = 0, sort, maxBuffer } = this.options;
     this.concurrency = Math.max(1, +concurrency || DEFAULT_CONCURRENCY);
     this.toposort = sort === undefined || sort;
@@ -212,9 +237,18 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
       cwd: this.project.rootPath,
       maxBuffer,
     };
+
+    performance.mark("command:configure-properties:end");
+    performance.measure(
+      "command configureProperties",
+      "command:configure-properties:start",
+      "command:configure-properties:end"
+    );
   }
 
   configureLogging() {
+    performance.mark("command:configure-logging:start");
+
     const { loglevel } = this.options;
 
     if (loglevel) {
@@ -231,6 +265,13 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
 
     // emit all buffered logs at configured level and higher
     log.resume();
+
+    performance.mark("command:configure-logging:end");
+    performance.measure(
+      "command configureLogging",
+      "command:configure-logging:start",
+      "command:configure-logging:end"
+    );
   }
 
   enableProgressBar() {
@@ -253,6 +294,8 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
   }
 
   runValidations() {
+    performance.mark("command:run-validations:start");
+
     if ((this.options.since !== undefined || this.requiresGit) && !this.gitInitialized()) {
       throw new ValidationError("ENOGIT", "The git binary was not found, or this is not a git repository.");
     }
@@ -286,9 +329,18 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
         "Usage of pnpm without workspaces is not supported. To use pnpm with lerna, set useWorkspaces to true in lerna.json and configure pnpm to use workspaces: https://pnpm.io/workspaces."
       );
     }
+
+    performance.mark("command:run-validations:end");
+    performance.measure(
+      "command runValidations",
+      "command:run-validations:start",
+      "command:run-validations:end"
+    );
   }
 
   runPreparations() {
+    performance.mark("command:run-preparations:start");
+
     if (!this.composed && this.project.isIndependent()) {
       // composed commands have already logged the independent status
       log.info("versioning", "independent");
@@ -309,22 +361,43 @@ export class Command<T extends CommandConfigOptions = CommandConfigOptions> {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       this.packageGraph = new PackageGraph(packages);
+      performance.mark("command:run-preparations:end");
+      performance.measure(
+        "command runPreparations",
+        "command:run-preparations:start",
+        "command:run-preparations:end"
+      );
     });
 
     return chain;
   }
 
-  runCommand() {
+  runCommand(): Promise<void> {
     return Promise.resolve()
+      .then(() => {
+        performance.mark("command:initialize:start");
+      })
       .then(() => this.initialize())
       .then((proceed) => {
+        performance.mark("command:initialize:end");
+        performance.measure("command initialize", "command:initialize:start", "command:initialize:end");
+        return proceed;
+      })
+      .then((proceed) => {
+        performance.mark("command:execute:start");
         // TODO: refactor to address type issues
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         if (proceed !== false) {
           return this.execute();
         }
+
         // early exits set their own exitCode (if non-zero)
+      })
+      .then((_) => {
+        performance.mark("command:execute:end");
+        performance.measure("command execute", "command:execute:start", "command:execute:end");
+        return _;
       });
   }
 
