@@ -1,0 +1,79 @@
+name: "🐞 Bug Report"
+description: Report a bug
+title: "[Bug]: "
+labels: ["type: bug"]
+assignees:
+  - octocat
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do your best to fill out all of the sections below!
+  - type: markdown
+    attributes:
+      value: |
+        # Behavior
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: What is the behavior that currently you experience?
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What is the behavior that you expect to happen?
+    validations:
+      required: true
+  - type: input
+    id: is-regression
+    attributes:
+      label: Is this a regression?
+      description: Did this used to be the behavior in a previous version of Lerna?
+      placeholder: Yes / No / I don't know
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Help us help you by making it easy for us to reproduce your issue!
+      value: |
+        <!-- Can you reproduce this on https://github.com/lerna/repro? -->
+        <!-- If so, open a PR with your changes and link it here. -->
+        <!-- If not, please provide a minimal Github repo of your own -->
+        <!-- At the very least, provide as much detail as possible to help us reproduce the issue -->
+        <!-- This issue may not be prioritized if details are not provided to help us reproduce the issue. -->
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        # Environment, Configuration, & Logs
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please paste the result of running `npx lerna info` in your repo below.
+      render: Shell
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: Please paste your `lerna.json` here.
+      render: JSON
+    validations:
+      required: true
+  - type: textarea
+    id: lerna-debug-log
+    attributes:
+      label: lerna-debug.log
+      description: If you have a `lerna-debug.log` file, please paste it here.
+      render: Text
+  - type: textarea
+    id: failure-logs
+    attributes:
+      label: Additional Information
+      description: Please include any other relevant information here.
