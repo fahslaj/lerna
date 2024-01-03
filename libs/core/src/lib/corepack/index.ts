@@ -1,1 +1,5 @@
-export { execPackageManager, execPackageManagerSync } from "./exec-package-manager";
+export {
+  execPackageManager,
+  execPackageManagerSync,
+  spawnPackageManagerStreaming,
+} from "./exec-package-manager";
